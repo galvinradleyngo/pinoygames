@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <title>Pinoy Games</title>
 <style>
 * { box-sizing: border-box; }
@@ -51,7 +51,31 @@ footer { text-align: center; margin-top: 30px; opacity: .75; font-size: .9rem; }
 button.small { font: inherit; padding: 8px 14px; border-radius: 10px; border: 2px solid #fcd116; background: rgba(20,12,40,.6); color: #fff6e0; cursor: pointer; }
 button.small:hover { background: rgba(252,209,22,.25); }
 
-.stage { position: relative; margin-top: 10px; border-radius: 18px; overflow: hidden; border: 4px solid #5a2d0c; box-shadow: 0 10px 30px rgba(0,0,0,.5); aspect-ratio: 960 / 720; background: #000; }
+body { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+.stage { position: relative; margin: 10px auto 0; border-radius: 18px; overflow: hidden; border: 4px solid #5a2d0c; box-shadow: 0 10px 30px rgba(0,0,0,.5); aspect-ratio: 960 / 720; background: #000; }
+.btns { display: flex; gap: 8px; }
+button.round { width: 40px; height: 40px; padding: 0; border-radius: 50%; font-weight: bold; font-size: 1.2rem; }
+.panel { max-height: 100%; overflow: auto; }
+.action.alt { font-size: 1rem; padding: 10px 22px; background: linear-gradient(#bcd7ff, #5b8def); box-shadow: 0 5px 0 #24408a, 0 8px 16px rgba(0,0,0,.4); }
+.btnrow { display: flex; gap: 12px; }
+@media (max-width: 700px) {
+  .screen { padding: 6px 6px 14px; }
+  .topbar { gap: 6px; }
+  .hud { order: 3; width: 100%; gap: 5px; }
+  .hud div { flex: 1; min-width: 0; padding: 2px 4px; }
+  .hud b { font-size: .95rem; }
+  .hud label { font-size: .55rem; }
+  .topbar > #menuBtn { margin-right: auto; }
+  .stage { border-width: 3px; border-radius: 12px; }
+  .panel { padding: 14px 16px; }
+  .panel h2 { font-size: 1.4rem; }
+  .panel ul { font-size: .92rem; }
+  .controls { gap: 6px; margin-top: 8px; }
+  #status { font-size: .9rem; flex-basis: 100%; min-height: 20px; }
+  .btnrow { width: 100%; }
+  .btnrow .action { flex: 1; padding: 14px 10px; font-size: 1.15rem; }
+  .title { margin-top: 20px; }
+}
 canvas { width: 100%; height: 100%; display: block; touch-action: none; cursor: pointer; }
 .overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(10,5,25,.65); padding: 12px; }
 .panel { background: linear-gradient(160deg, #4a1d3d, #1d2a5b); border: 4px solid #fcd116; border-radius: 20px; padding: 22px 28px; max-width: 560px; text-align: center; animation: pop .3s ease-out; }
@@ -99,8 +123,12 @@ canvas { width: 100%; height: 100%; display: block; touch-action: none; cursor: 
       <div><label>Best</label><b id="hud-best">0</b></div>
       <div><label>Moves</label><b id="hud-moves">0</b></div>
       <div><label>Goal</label><b id="hud-goal"></b></div>
+      <div><label>Salo</label><b id="hud-streak">0</b></div>
     </div>
-    <button id="muteBtn" class="small" title="Toggle sound">Sound: On</button>
+    <div class="btns">
+      <button id="helpBtn" class="small round" title="How to play" aria-label="How to play">?</button>
+      <button id="muteBtn" class="small" title="Toggle sound">Sound: On</button>
+    </div>
   </div>
   <div class="stage">
     <canvas id="canvas" width="960" height="720"></canvas>
@@ -111,10 +139,26 @@ canvas { width: 100%; height: 100%; display: block; touch-action: none; cursor: 
         <div id="ov-buttons"></div>
       </div>
     </div>
+    <div id="help" class="overlay hidden">
+      <div class="panel">
+        <h2>How to play</h2>
+        <ul>
+          <li><b>Swap</b> two neighbouring jacks (drag, or tap one then the other) to line up 3 or more of the same color &mdash; in a row, a column or a <b>diagonal</b>.</li>
+          <li>Match <b>4</b> for a blast jack: straight lines clear a row or column, diagonals clear an <b>X</b>. Match <b>5</b> for a rainbow bola that wipes a color.</li>
+          <li>Every swap <b>tosses the ball</b>. After it bounces once, tap <b>Salo!</b> (button, the strip under the board, or Space) while it is in your hand zone. Catches build a streak that multiplies your score, and every 3rd catch gives a bonus move. Dropping it resets the streak.</li>
+          <li>Reach the goal before you run out of moves. In higher levels <b>only the glowing colors count</b>.</li>
+          <li>Stuck? Tap <b>Hint</b>. Tap <b>?</b> any time to see this again.</li>
+        </ul>
+        <button id="help-close" class="action">Simulan!</button>
+      </div>
+    </div>
   </div>
   <div class="controls">
     <div id="status"></div>
-    <button id="actionBtn" class="action">Hint</button>
+    <div class="btnrow">
+      <button id="actionBtn" class="action alt">Hint</button>
+      <button id="saloBtn" class="action">Salo!</button>
+    </div>
   </div>
 </main>
 
@@ -155,6 +199,9 @@ const Sfx = (() => {
     init, startMusic,
     toggle() { muted = !muted; if (master) master.gain.value = muted ? 0 : 0.5; return muted; },
     swap() { tone(380, 0.1, 'sine', 0.2, 560); },
+    toss() { tone(220, 0.4, 'sine', 0.3, 800); },
+    thud() { tone(140, 0.18, 'sine', 0.45, 55); },
+    catchOk(perfect) { tone(520, 0.12, 'square', 0.14); tone(780, 0.2, 'square', 0.14, null, 0.08); if (perfect) tone(1040, 0.3, 'triangle', 0.2, null, 0.16); },
     pick(n = 0) { tone(520 + Math.min(n, 8) * 80, 0.15, 'triangle', 0.3, 1000 + Math.min(n, 8) * 80); },
     boom() { tone(120, 0.4, 'sawtooth', 0.3, 40); tone(900, 0.3, 'square', 0.1, 200); },
     fail() { tone(300, 0.35, 'sawtooth', 0.18, 90); },
@@ -164,7 +211,8 @@ const Sfx = (() => {
 
 // ---------- Jackstone Crush: match-3 with 3D-projected jacks on a banig mat ----------
 const Jackstone = (() => {
-  const W = 960, H = 720, N = 8, F = 640, CY = 410;
+  let W = 960, H = 720, F = 640, CY = 385, portrait = false, bgK = 1, bgOff = 0, catchY = 640;
+  const N = 8, G = 10, PEAK = 6.5, REST = 0.6;
   const COLORS = [
     { n: 'Pula', l: '#ffd0d5', h: '#ff3b4e', d: '#7a0c1c' },
     { n: 'Dilaw', l: '#fff4b0', h: '#ffc41f', d: '#8a5a00' },
@@ -184,12 +232,13 @@ const Jackstone = (() => {
 
   const canvas = document.getElementById('canvas'), ctx = canvas.getContext('2d');
   const $ = id => document.getElementById(id);
-  const hud = { level: $('hud-level'), score: $('hud-score'), best: $('hud-best'), moves: $('hud-moves'), goal: $('hud-goal') };
+  const hud = { level: $('hud-level'), score: $('hud-score'), best: $('hud-best'), moves: $('hud-moves'), goal: $('hud-goal'), streak: $('hud-streak') };
   const statusEl = $('status');
   const overlay = $('overlay'), ovTitle = $('ov-title'), ovBody = $('ov-body'), ovButtons = $('ov-buttons');
 
   let grid, level = 0, score = 0, moves = 0, goalCount = 0, selected = null, drag = null, busy = true, ended = false;
-  let time = 0, running = false, last = 0, epoch = 0, idle = 0, hint = null, shake = 0;
+  let time = 0, running = false, last = 0, epoch = 0, idle = 0, hint = null, shake = 0, streak = 0, helpOpen = false, helpFirst = false;
+  const ball = { state: 'ready', h: 1, v: 0, bounces: 0, squash: 0, timer: 0, pulse: 0 };
   let parts = [], texts = [], dying = [];
   const cam = { x: 0, y: 9, z: -8, tx: 0 };
   let best = +localStorage.getItem('pinoygames.jackstone.best') || 0;
@@ -232,6 +281,19 @@ const Jackstone = (() => {
         r = e;
       }
     }
+    // diagonals: '\' (d1) and '/' (d2)
+    [[1, 1, 'd1'], [1, -1, 'd2']].forEach(([dr, dc, dir]) => {
+      const inb = (r, c) => r >= 0 && c >= 0 && r < N && c < N;
+      for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+        const p = grid[r][c]; if (!p || p.type < 0) continue;
+        const pv = inb(r - dr, c - dc) && grid[r - dr][c - dc];
+        if (pv && pv.type === p.type) continue;
+        const cells = [[r, c]];
+        let rr = r + dr, cc = c + dc;
+        while (inb(rr, cc) && grid[rr][cc] && grid[rr][cc].type === p.type) { cells.push([rr, cc]); rr += dr; cc += dc; }
+        if (cells.length >= 3) list.push({ dir, type: p.type, cells });
+      }
+    });
     return list;
   }
 
@@ -249,24 +311,31 @@ const Jackstone = (() => {
     return null;
   }
 
+  // Would placing type t at (r,c) complete a line with earlier cells (row-major fill)?
+  function makesLine(r, c, t) {
+    return [[0, -1], [-1, 0], [-1, -1], [-1, 1]].some(([dr, dc]) => {
+      const r1 = r + dr, c1 = c + dc, r2 = r + 2 * dr, c2 = c + 2 * dc;
+      if (r2 < 0 || c2 < 0 || c2 >= N) return false;
+      return grid[r1][c1].type === t && grid[r2][c2].type === t;
+    });
+  }
+  function randomType(r, c) {
+    let t;
+    for (let i = 0; i < 20; i++) { t = Math.floor(Math.random() * L().colors); if (!makesLine(r, c, t)) break; }
+    return t;
+  }
+
   function fillBoard() {
-    const nc = L().colors;
     do {
       grid = Array.from({ length: N }, () => Array(N).fill(null));
-      for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
-        let t;
-        do { t = Math.floor(Math.random() * nc); }
-        while ((c >= 2 && grid[r][c - 1].type === t && grid[r][c - 2].type === t) || (r >= 2 && grid[r - 1][c].type === t && grid[r - 2][c].type === t));
-        grid[r][c] = mk(t, r, c, r - N - 1 - Math.random() * 3);
-      }
-    } while (!findHint());
+      for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) grid[r][c] = mk(randomType(r, c), r, c, r - N - 1 - Math.random() * 3);
+    } while (findRuns().length || !findHint());
   }
 
   async function shuffle(ep) {
     say('Halo-halo! Shuffle', '#fcd116');
     do {
-      const ps = grid.flat();
-      ps.forEach(p => { if (p.special !== 'bola') p.type = Math.floor(Math.random() * L().colors); p.pop = 1; });
+      grid.forEach((row, r) => row.forEach((p, c) => { if (p.special !== 'bola') { p.type = randomType(r, c); p.pop = 1; } }));
     } while (findRuns().length || !findHint());
     await wait(500); return ep === epoch;
   }
@@ -278,6 +347,7 @@ const Jackstone = (() => {
       const add = [];
       if (p.special === 'h') for (let i = 0; i < N; i++) add.push([r, i]);
       else if (p.special === 'v') for (let i = 0; i < N; i++) add.push([i, c]);
+      else if (p.special === 'x') for (let i = -N; i < N; i++) [[r + i, c + i], [r + i, c - i]].forEach(([a, b]) => { if (a >= 0 && b >= 0 && a < N && b < N) add.push([a, b]); });
       else if (p.special === 'bola') {
         const t = Math.floor(Math.random() * L().colors);
         grid.forEach((row, rr) => row.forEach((x, cc) => { if (x.type === t) add.push([rr, cc]); }));
@@ -303,7 +373,7 @@ const Jackstone = (() => {
       for (let i = 0; i < 8; i++) parts.push({ x: sp.x, y: sp.y, vx: rand(-220, 220), vy: rand(-300, 60), life: rand(.4, .9), color: col, size: rand(3, 7) });
       dying.push({ p, t: 0 }); grid[r][c] = null;
     });
-    score += gained;
+    gained = Math.round(gained * (1 + Math.min(streak, 10) * 0.1)); score += gained;
     if (score > best) { best = score; localStorage.setItem('pinoygames.jackstone.best', best); }
     if (n) texts.push({ text: '+' + gained, color: '#fff', x: cx / n, y: cy / n, life: 1.2 });
     if (chain >= 2) say('Cascade x' + chain + '!', '#ff9ecb');
@@ -324,7 +394,7 @@ const Jackstone = (() => {
       const len = run.cells.length; if (len < 4) return;
       const pick = (hintCells && run.cells.find(([r, c]) => hintCells.some(h => h[0] === r && h[1] === c))) || run.cells[len >> 1];
       if (grid[pick[0]][pick[1]].special) return;
-      out.push({ r: pick[0], c: pick[1], special: len >= 5 ? 'bola' : (run.dir === 'h' ? 'v' : 'h') });
+      out.push({ r: pick[0], c: pick[1], special: len >= 5 ? 'bola' : run.dir === 'h' ? 'v' : run.dir === 'v' ? 'h' : 'x' });
     });
     return out;
   }
@@ -343,7 +413,7 @@ const Jackstone = (() => {
       await until(settled); if (ep !== epoch) return;
       busy = false; return;
     }
-    moves--; updateHud();
+    moves--; updateHud(); tossBall();
     let chain = 1;
     if (bola) {
       const set = new Map(), add = (r, c) => set.set(r * N + c, [r, c]);
@@ -377,7 +447,7 @@ const Jackstone = (() => {
 
   function updateHud() {
     hud.level.textContent = (level + 1) + ' / ' + LEVELS.length;
-    hud.score.textContent = score; hud.best.textContent = best; hud.moves.textContent = Math.max(0, moves);
+    hud.score.textContent = score; hud.best.textContent = best; hud.moves.textContent = Math.max(0, moves); hud.streak.textContent = streak;
     const dots = (L().count || []).map(t => '<i class="dot" style="background:' + COLORS[t].h + ';color:' + COLORS[t].h + '"></i>').join('');
     hud.goal.innerHTML = dots + Math.min(goalCount, L().goal) + ' / ' + L().goal;
   }
@@ -397,15 +467,15 @@ const Jackstone = (() => {
 
   function startLevel() {
     epoch++; busy = true; ended = false; goalCount = 0; moves = L().moves; selected = null; hint = null; idle = 0;
-    parts = []; texts = []; dying = [];
+    parts = []; texts = []; dying = []; streak = 0; resetBall();
     fillBoard(); updateHud();
     const lv = L();
-    statusEl.textContent = lv.count ? 'Only ' + lv.count.map(t => COLORS[t].n).join(' / ') + ' stones count toward the goal!' : 'Swap neighbouring jacks to match 3 or more.';
+    statusEl.textContent = lv.count ? 'Only ' + lv.count.map(t => COLORS[t].n).join(' / ') + ' stones count toward the goal!' : 'Swap jacks to match 3+ in a row, column or diagonal. Each swap tosses the ball!';
     const goalTxt = lv.count
       ? '<p>Collect <b>' + lv.goal + '</b> ' + names(lv.count) + ' stones.</p><p><b>Only these colors count!</b> Other matches just clear the way.</p>'
       : '<p>Clear <b>' + lv.goal + '</b> stones of any color.</p>';
     const ep = epoch;
-    showOverlay('Level ' + (level + 1) + ': ' + lv.name, goalTxt + '<p>You have <b>' + lv.moves + '</b> moves. Match 4 for a line blast, match 5 for a rainbow bola!</p>', [
+    showOverlay('Level ' + (level + 1) + ': ' + lv.name, goalTxt + '<p>You have <b>' + lv.moves + '</b> moves. Match 4 for a blast jack (diagonals make an X blast), match 5 for a rainbow bola. Each swap tosses the ball: tap Salo! after one bounce!</p>', [
       { label: 'Simulan!', primary: true, fn: async () => { await until(settled); if (ep === epoch) busy = false; } },
     ]);
   }
@@ -438,6 +508,66 @@ const Jackstone = (() => {
 
   function showHint() { if (!busy && !ended) { hint = findHint(); idle = 0; } }
 
+  // ---------- the ball: tossed on every swap, caught after one bounce ----------
+  const ballY = h => (H - 30) - h * ((H - 170) / PEAK);
+  function resetBall() { Object.assign(ball, { state: 'ready', h: 1, v: 0, bounces: 0, squash: 0, timer: 0 }); }
+  function tossBall() {
+    if (ball.state !== 'ready') return;
+    ball.state = 'air'; ball.bounces = 0; ball.v = Math.sqrt(2 * G * (PEAK - 1)); Sfx.toss();
+  }
+  const inCatchZone = () => ball.state === 'air' && ball.bounces >= 1 && ball.v < 0 && ball.h <= 1.65 && ball.h >= 0.35;
+  function catchBall() {
+    if (!running || ended || helpOpen || !inCatchZone()) return;
+    const perfect = Math.abs(ball.h - 1) < 0.25;
+    streak++; ball.state = 'cool'; ball.timer = 0.5; ball.pulse = 1; ball.v = 0;
+    const gain = (perfect ? 150 : 75) * streak; score += gain;
+    if (score > best) { best = score; localStorage.setItem('pinoygames.jackstone.best', best); }
+    say((perfect ? 'Perfect! +' : 'Salo! +') + gain, perfect ? '#fcd116' : '#8ff0b0');
+    if (streak % 3 === 0) { moves++; texts.push({ text: '+1 Move!', color: '#9ad0ff', x: W / 2, y: 250, life: 1.4, big: true }); }
+    Sfx.catchOk(perfect);
+    const hy = ballY(1);
+    for (let i = 0; i < (perfect ? 30 : 14); i++) parts.push({ x: W / 2, y: hy, vx: rand(-220, 220), vy: rand(-320, 40), life: rand(.4, .9), color: perfect ? '#fcd116' : '#8ff0b0', size: rand(3, 7) });
+    updateHud();
+  }
+  function updateBall(dt) {
+    ball.pulse = Math.max(0, ball.pulse - dt * 3); ball.squash = Math.max(0, ball.squash - dt * 5);
+    if (ball.state === 'ready') ball.h = 1 + Math.sin(time * 4) * 0.04;
+    else if (ball.state === 'air') {
+      ball.v -= G * dt; ball.h += ball.v * dt;
+      if (ball.h <= 0) {
+        ball.h = 0; ball.squash = 1; Sfx.thud();
+        if (++ball.bounces === 1) ball.v = -ball.v * REST;
+        else { streak = 0; updateHud(); say('Hulog! Streak lost', '#ff5d6c'); Sfx.fail(); ball.state = 'cool'; ball.timer = 0.6; ball.v = 0; }
+      }
+    } else if (ball.state === 'cool') {
+      ball.timer -= dt; ball.h += (1 - ball.h) * Math.min(1, dt * 6);
+      if (ball.timer <= 0) resetBall();
+    }
+  }
+
+  function showHelp(first) {
+    helpOpen = true; helpFirst = first;
+    $('help-close').textContent = first ? 'Simulan!' : 'Balik sa laro';
+    $('help').classList.remove('hidden');
+  }
+  function closeHelp() {
+    helpOpen = false; $('help').classList.add('hidden');
+    if (helpFirst) { helpFirst = false; newGame(); }
+  }
+
+  function resize() {
+    portrait = window.innerHeight > window.innerWidth * 0.95;
+    W = portrait ? 600 : 960; H = portrait ? 900 : 720;
+    F = portrait ? 570 : 640; CY = portrait ? 520 : 385;
+    bgK = H / 720; bgOff = (W - 960 * bgK) / 2;
+    canvas.width = W; canvas.height = H;
+    const st = canvas.parentElement, ratio = (W / H).toFixed(4);
+    st.style.aspectRatio = W + ' / ' + H;
+    st.style.width = 'max(240px, min(100%, calc((100vh - 230px) * ' + ratio + ')))';
+    st.style.width = 'max(240px, min(100%, calc((100dvh - 230px) * ' + ratio + ')))';
+    catchY = proj(0, 0, -4.45).y + 6;
+  }
+
   // ---------- update ----------
   function update(dt) {
     time += dt; shake = Math.max(0, shake - dt);
@@ -453,6 +583,7 @@ const Jackstone = (() => {
       p.alpha = Math.min(1, (p.y + 1.2) / 1.2);
     }));
     dying.forEach(d => d.t += dt * 4); dying = dying.filter(d => d.t < 1);
+    if (!ended && !helpOpen) updateBall(dt);
     parts.forEach(p => { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 600 * dt; p.life -= dt; });
     parts = parts.filter(p => p.life > 0);
     texts.forEach(t => { t.y -= 30 * dt; t.life -= dt; }); texts = texts.filter(t => t.life > 0);
@@ -480,10 +611,13 @@ const Jackstone = (() => {
   }
 
   function drawBackground() {
+    ctx.save();
+    ctx.translate(bgOff, 0); ctx.scale(bgK, bgK);
+    const vx0 = -bgOff / bgK, vx1 = vx0 + W / bgK;
     const px = cam.x;
     const sky = ctx.createLinearGradient(0, 0, 0, 400);
     sky.addColorStop(0, '#1d2a5b'); sky.addColorStop(.5, '#b0476b'); sky.addColorStop(1, '#ffb15a');
-    ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = sky; ctx.fillRect(0, 0, 960, 720);
     ctx.save(); ctx.translate(480 - px * 6, 250);
     ctx.fillStyle = 'rgba(252,209,22,.25)';
     for (let i = 0; i < 8; i++) { const a = time * 0.15 + i * Math.PI / 4; ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, 520, a - 0.1, a + 0.1); ctx.fill(); }
@@ -496,13 +630,14 @@ const Jackstone = (() => {
     });
     const g = ctx.createLinearGradient(0, 330, 0, H);
     g.addColorStop(0, '#2f6b3a'); g.addColorStop(1, '#4b3a1f');
-    ctx.fillStyle = g; ctx.fillRect(0, 330, W, H - 330);
-    const hx = 105 - px * 24, hy = 345;
+    ctx.fillStyle = g; ctx.fillRect(0, 330, 960, 390);
+    const hx = vx0 + 105 - px * 24, hy = 345;
     ctx.fillStyle = '#22141c'; ctx.fillRect(hx - 40, hy - 40, 80, 8);
     ctx.beginPath(); ctx.moveTo(hx - 62, hy - 40); ctx.lineTo(hx, hy - 105); ctx.lineTo(hx + 62, hy - 40); ctx.fill();
     ctx.fillRect(hx - 36, hy - 34, 6, 40); ctx.fillRect(hx + 30, hy - 34, 6, 40);
     ctx.fillStyle = '#ffcf5a'; ctx.fillRect(hx - 12, hy - 30, 24, 22);
-    drawPalm(880 - px * 34, 400, 230, -40); drawPalm(935 - px * 34, 410, 170, 20); drawPalm(25 - px * 34, 420, 160, 25);
+    drawPalm(vx1 - 80 - px * 34, 400, 230, -40); drawPalm(vx1 - 25 - px * 34, 410, 170, 20); drawPalm(vx0 + 25 - px * 34, 420, 160, 25);
+    ctx.restore();
     const cols = ['#0038a8', '#ce1126', '#fcd116', '#ffffff'];
     ctx.strokeStyle = '#3a2412'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(0, 14); ctx.quadraticCurveTo(W / 2, 70, W, 14); ctx.stroke();
     for (let i = 0; i < 16; i++) {
@@ -593,11 +728,44 @@ const Jackstone = (() => {
       const a = 0.5 * ce.s;
       if (p.special === 'h') [[-1, 0], [1, 0]].forEach(([dx]) => tri(ce.x + dx * a, ce.y, dx, 0));
       else if (p.special === 'v') [[0, -1], [0, 1]].forEach(([, dy]) => tri(ce.x, ce.y + dy * a * .8, 0, dy));
+      else if (p.special === 'x') [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([dx, dy]) => tri(ce.x + dx * a * .75, ce.y + dy * a * .55, dx * .7, dy * .7));
     }
     ctx.restore();
   }
   function tri(x, y, dx, dy) {
     ctx.beginPath(); ctx.moveTo(x + dx * 8, y + dy * 8); ctx.lineTo(x - dy * 7 - dx * 4, y + dx * 7 - dy * 4); ctx.lineTo(x + dy * 7 - dx * 4, y - dx * 7 - dy * 4); ctx.fill();
+  }
+
+  function drawHandBall() {
+    const cx = W / 2, hy0 = ballY(1), zone = inCatchZone();
+    if (ball.state === 'air' && ball.bounces >= 1) {
+      const top = ballY(1.65), bot = ballY(0.35);
+      ctx.fillStyle = zone ? 'rgba(143,240,176,.4)' : 'rgba(255,255,255,.12)';
+      ctx.strokeStyle = zone ? '#8ff0b0' : 'rgba(255,255,255,.5)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.rect(cx - 60, top, 120, bot - top); ctx.fill(); ctx.stroke();
+    }
+    // hand
+    ctx.save(); ctx.translate(cx, hy0 + 30); ctx.scale(0.85 + ball.pulse * 0.12, 0.85 + ball.pulse * 0.12);
+    ctx.strokeStyle = '#c98a5a'; ctx.fillStyle = '#c98a5a'; ctx.lineWidth = 15; ctx.lineCap = 'round';
+    [[-34, -14, -42, -34], [-12, -20, -14, -42], [12, -20, 14, -42], [34, -14, 42, -34], [48, 6, 66, -6]].forEach(f => {
+      ctx.beginPath(); ctx.moveTo(f[0], f[1]); ctx.lineTo(f[2], f[3]); ctx.stroke();
+    });
+    ctx.beginPath(); ctx.ellipse(0, 0, 48, 22, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = '#b57a4c'; ctx.beginPath(); ctx.ellipse(0, 6, 36, 12, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = '#c98a5a'; ctx.fillRect(-22, 14, 44, 90);
+    ctx.fillStyle = '#ce1126'; ctx.fillRect(-26, 46, 52, 12);
+    ctx.restore();
+    // shadow and ball
+    const gy = H - 30, sc = 1 / (1 + ball.h * 0.25), rad = 12 + 10 * (1 - Math.min(1, ball.h / PEAK));
+    ctx.fillStyle = 'rgba(0,0,0,' + (0.3 * sc) + ')';
+    ctx.beginPath(); ctx.ellipse(cx, gy + 4, 26 * sc, 7 * sc, 0, 0, 7); ctx.fill();
+    const sq = ball.squash, rx = rad * (1 + 0.3 * sq), ry = rad * (1 - 0.3 * sq), y = ballY(ball.h) - ry;
+    const g = ctx.createRadialGradient(cx - rad * .3, y - rad * .35, 2, cx, y, rad * 1.1);
+    g.addColorStop(0, '#fff3a0'); g.addColorStop(.35, '#ff9a1f'); g.addColorStop(1, '#c4400f');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(cx, y, rx, ry, 0, 0, 7); ctx.fill();
+    ctx.strokeStyle = 'rgba(120,30,0,.5)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(cx, y, Math.max(1, ry - 2), 0.6, 2.4); ctx.stroke();
+    if (zone) { ctx.fillStyle = '#8ff0b0'; ctx.font = 'bold 26px "Trebuchet MS", sans-serif'; ctx.textAlign = 'center'; ctx.fillText('SALO!', cx + 110, hy0 + 4); }
   }
 
   function draw() {
@@ -608,6 +776,7 @@ const Jackstone = (() => {
     grid.forEach(row => row.forEach(p => { if (p) list.push({ p, d: proj(cellX(p.x), 0.3, cellZ(p.y)).d, s: 1, a: 1 }); }));
     dying.forEach(d => list.push({ p: d.p, d: proj(cellX(d.p.x), 0.3, cellZ(d.p.y)).d, s: 1 + d.t * 0.4 - d.t * d.t * 1.2, a: 1 - d.t }));
     list.sort((a, b) => b.d - a.d).forEach(it => drawJack(it.p, Math.max(0.05, it.s), it.a));
+    drawHandBall();
     parts.forEach(p => { ctx.globalAlpha = Math.max(0, p.life); ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y, p.size, p.size); });
     ctx.globalAlpha = 1;
     ctx.textAlign = 'center'; ctx.lineWidth = 6; ctx.strokeStyle = 'rgba(0,0,0,.7)'; ctx.lineJoin = 'round';
@@ -657,26 +826,34 @@ const Jackstone = (() => {
     if (bestN) trySwap([r, c], bestN);
   });
   canvas.addEventListener('pointerdown', e => {
+    const m = toCanvas(e);
+    if (m.y > catchY) { catchBall(); return; }
     if (busy || ended) return;
-    const m = toCanvas(e), cell = pickCell(m.x, m.y); if (!cell) return;
+    const cell = pickCell(m.x, m.y); if (!cell) return;
     hint = null; idle = 0;
     if (selected && adjacent(selected, cell)) { trySwap(selected, cell); return; }
     selected = cell; drag = { x: m.x, y: m.y, cell };
   });
   window.addEventListener('pointerup', () => { drag = null; });
-  $('actionBtn').addEventListener('click', showHint);
+  $('actionBtn').addEventListener('click', e => { showHint(); e.currentTarget.blur(); });
+  $('saloBtn').addEventListener('click', e => { catchBall(); e.currentTarget.blur(); });
+  $('helpBtn').addEventListener('click', e => { if (running && !helpOpen) showHelp(false); e.currentTarget.blur(); });
+  $('help-close').addEventListener('click', closeHelp);
+  window.addEventListener('keydown', e => {
+    if (e.code === 'Space' && running) { e.preventDefault(); if (!e.repeat) catchBall(); }
+  });
+  window.addEventListener('resize', resize);
 
   return {
     start() {
-      running = true; last = performance.now(); epoch++;
+      running = true; last = performance.now(); epoch++; ended = false; busy = true; resize();
       grid = Array.from({ length: N }, () => Array(N).fill(null));
-      showOverlay('How to play', '<ul><li><b>Swap</b> two neighbouring jacks (drag or tap one, then the other) to line up 3 or more of the same color.</li><li>Match <b>4</b> for a line-blast jack, <b>5</b> for a rainbow bola that wipes a color.</li><li>Reach the goal before you run out of moves.</li><li>In higher levels, <b>only the highlighted colors count</b> toward the goal!</li><li>Move your mouse to look around the mat.</li></ul>', [
-        { label: 'Simulan!', primary: true, fn: () => { newGame(); } },
-      ]);
+      streak = 0; resetBall(); overlay.classList.add('hidden');
       best = +localStorage.getItem('pinoygames.jackstone.best') || 0; hud.best.textContent = best;
+      showHelp(true);
       requestAnimationFrame(loop);
     },
-    stop() { running = false; epoch++; },
+    stop() { running = false; epoch++; helpOpen = false; $('help').classList.add('hidden'); },
   };
 })();
 
